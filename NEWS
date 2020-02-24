@@ -1,0 +1,905 @@
+TODOs in approximate order of importance (higher is more important).
+
+ASK JS GUYS: grey after mouseout on ff? Talked to JS guys, maybe has
+something to do with mouseenter and mouseleave
+http://bl.ocks.org/mbostock/5247027 -------------------------------
+maybe has something to do with setInterval which is not executed in
+chrome when the browser window is inactive
+http://stackoverflow.com/questions/5927284
+
+When testing code on travis, record how much time, disk space, memory
+for compilation and rendering steps, and write those values to a CSV
+file. Then make a time series plot of these data to see if the code is
+getting more or less efficient. This could be useful in packages other
+than animint, so I proposed a GSOC2015 project
+https://github.com/rstats-gsoc/gsoc2015/wiki/Test-timings-on-Travis
+
+DSL: allow for example
+geom_tile(aes(clickSelects1=var1, clickSelects2=var2))
+which means that clicking a tile changes
+the selected values of BOTH selectors.
+
+DSL: customizable alpha/color/size/fill/linetype for selected geoms,
+using selected.alpha, selected.color, etc aesthetics, see
+examples/Climate-selected.R. The first implementation should only
+allow this at the geom level,
+e.g. geom_point(aes(clickSelects=var),selected.color="red") means to
+plot a bunch of points which are black if not selected and red if
+selected. In ggplot2-0.9.3.1, selected.color thus defined can be
+accessed as layer$stat_params$selected.color. In the future we can try
+an implementation at the aes level,
+e.g. geom_point(aes(clickSelects=var1,selected.color=var2)) means
+black if not selected and scale[var2] if selected. NOTE: should
+maintain compatibility with existing code, which assumes
+selected.color="black" and color="transparent" for
+e.g. geom_rect(aes(fill=numeric, clickSelects=id)) and otherwise,
+selected.alpha=1 and alpha=1/2.
+
+RENDER: Have you thought adding the ability about saving the
+visualization state? I know we have ability to change the default
+selection, but it would also be nice to save the state as a url
+fragment -- http://en.wikipedia.org/wiki/Fragment_identifier
+
+OPTIMIZATION: Why does it take so much memory to compile large data?
+e.g. My computer has 12GB RAM but starts swapping when I try to
+compile examples/vervet.R.
+
+OPTIMIZATION: Profile animint2dir() to see what part is slow, and speed
+it up! e.g. the last viz in
+https://github.com/tdhock/animint-examples/blob/master/examples/scaffolds.R
+took 15 minutes to compile on my computer.
+
+OPTIMIZATION: to save disk space, we can compress the TSV file
+standard web servers? With servers like gist.github.com, all .json
+files are served with Content-Encoding: gzip, so they use
+http://en.wikipedia.org/wiki/HTTP_compression over the network. In
+firefox Inspect Element -> network it seems like they do not compress
+.tsv files. In curl it seems like it depends on the --compress flag
+
+thocking@silene:~/projects/chip-seq-paper(master*)$ curl --compress -# --head https://gist.githubusercontent.com/tdhock/914ab9c19038cae238a4/raw/geom10_rect_profiles_chunk9.tsv |grep Content-Encoding
+
+Content-Encoding: gzip
+thocking@silene:~/projects/chip-seq-paper(master*)$ curl -# --head https://gist.githubusercontent.com/tdhock/914ab9c19038cae238a4/raw/geom10_rect_profiles_chunk9.tsv |grep Content-Encoding
+
+thocking@silene:~/projects/chip-seq-paper(master*)$ curl --compress -# --head https://gist.githubusercontent.com/tdhock/914ab9c19038cae238a4/raw/plot.json |grep Content-Encoding
+
+Content-Encoding: gzip
+thocking@silene:~/projects/chip-seq-paper(master*)$ curl -# --head https://gist.githubusercontent.com/tdhock/914ab9c19038cae238a4/raw/plot.json |grep Content-Encoding
+
+thocking@silene:~/projects/chip-seq-paper(master*)$
+
+DSL: Allow other variable names for the same selection variable,
+e.g. insert and insert.show are 2 different columns in
+data=other.inserts, but they should both use the "insert" selection
+variable, in geom_point(aes(clickSelects=insert,
+showSelected=insert.show, data=other.inserts). See the example in
+https://github.com/tdhock/animint-examples/blob/master/examples/scaffolds.R#L65
+A better way to define this would be
+aes(clickSelects=insert,
+    showSelected.variable="insert",
+    showSelected.value=insert.show)
+Such a syntax would also be useful to avoid the use of for loops when
+defining a data viz with many selection variables, as in
+https://github.com/tdhock/animint-examples/blob/master/examples/PSJ.R
+For loops are bad for two reasons:
+- more code to type (144 lines versus 122 lines),
+- and slower construction of the data viz (30 seconds versus 1 second).
+
+DSL/RENDER: after clicking and changing the displayed data subset,
+zoom/update the axes of related plots. For animations we clearly want
+to keep the same axes across animation frames, but for some other
+kinds of plots it would be nice if the axes automatically zoomed. We 
+currently have theme_animint(update_axes=c("x", "y")) option for single
+selection variables for most supported geoms. There should also be a button
+next to each axis that you can click to toggle zooming on and off. The
+implementation for multiple selection vars may require some computation in
+the renderer. See this: https://github.com/tdhock/animint/pull/158
+
+RENDER: move stats computation to the renderer, to support e.g.
+examples/stats.R
+
+RENDER: it would be nice to zoom by dragging a rectangle on the plot
+background, as in plotly. Then double-click to zoom back out. This lib
+might help do the heavy lifting -- https://github.com/romsson/dragit
+
+RENDER: It would be nice to be able to resize plots interactively,
+like we can do in shiny+ggvis.
+
+RENDER/DSL: Multiple selection via rectangular brush and/or lasso
+https://github.com/skokenes/D3-Lasso-Plugin
+
+RENDER: Easy legend decoding: draw an arrow next to the legend entry
+for the value of the element that the mouse is hovering over, e.g.
+http://www.highcharts.com/maps/demo/map-drilldown/dark-unica
+
+DSL: To accomplish interactivity like in this plot
+http://timelyportfolio.blogspot.ca/2014/05/pdf-chart-inkscape-svg-d3-interactive.html
+http://kbroman.github.io/qtlcharts/assets/chartexamples/iplotMScanone_example.html
+https://www.biostat.wisc.edu/~kbroman/D3/car_crashes/
+we could write geom_tile(aes(hoverSelects=var)) which means that the
+selected value of var should be changed when the user hovers the mouse
+over any tile. Raise an error if hoverSelects is used with multiple
+selection. For the viz below
+http://cpsievert.github.io/LDAvis/newsgroup/newsgroup.html
+we could write geom_point(aes(hoverSelects=var, clickSelects=var))
+There are thus two kinds of hoverSelects: when you hover away from a
+geom, (1) select the previous value or (2) keep the same value. We
+could use two different aesthetics: aes(hoverSelectsSticky) and
+aes(hoverSelectsLast). Or we could use a geom-level option
+geom_point(aes(hoverSelects=var), onMouseOut="selectLast") or
+geom_point(aes(hoverSelects=var), onMouseOut="keepSelection"). Or we
+could infer a default: aes(hoverSelects=var) implies (2) and
+aes(hoverSelects=var, clickSelects=var) implies (1). Which of these 3
+methods should we use to define hoverSelects interactivity?
+
+GGPLOT: theme(legend.position)
+
+DSL: how to specify the layout of SVG elements on the page?
+- option list(layout=matrix of plot names) means
+  render plots in an html table instead of in a line?
+- specifying newlines in the option list?
+  list(timeSeries=ggplot(),
+       newline=list(),
+       scatter=ggplot())
+  means that we should layout the plots in a <table> with
+  2 rows and 1 column.
+
+EXAMPLE: US state population since 1790, compare w/ other countries?
+http://en.wikipedia.org/wiki/List_of_U.S._states_by_historical_population
+http://fr.wikipedia.org/wiki/Histoire_démographique_de_la_France
+http://www.populstat.info/Asia/japanc.htm
+http://www.populstat.info/Americas/canadac.htm
+
+RENDER: Is it possible to fix geom_rect and geom_text vertical alignment? There is no equivalent of R's vjust in SVG. See examples/align_rect_text.R.
+
+DSL: if there was no duration specified, should
+time=list(variable=2000) imply duration=list(variable=1000)?
+
+DSL: geom_tallrect(aes(xmin=chromStart, xmax=chromEnd,
+fill=annotation), edit=TRUE) means that we would like to interactively
+edit the data in this geom. In particular it means that the specified
+aesthetics may be edited by the user (xmin, xmax, fill) but the
+non-specified aesthetics may not (e.g. color in the example
+above). Save each TSV file with an _animint_id column which is unique
+for each drawn element. Start a web server that accepts POST requests
+and can edit the TSV files appropriately. This will probably take a
+lot of work, and a lot of geom-specific interactive editing code, so
+it is more of a research project than a feature request.
+
+RENDER: Should we download all data in the background, even for
+non-animated plots? I have started some work on the loadall branch,
+but the preliminary answer is NO -- the browser freezes and the plot
+does not respond to mouse clicks while the data is loading.
+
+DSL: Implement shape aesthetic with d3.svg.symbol()
+https://github.com/mbostock/d3/wiki/SVG-Shapes#symbol_type
+
+RENDER: Determine why border of tiles in pirates example does not seem to be rendering.
+
+RENDER: multiple animints inside of a single shiny app? This is
+probably just a theoretical issue. (why not just make a single
+animint?)
+
+2017.01.04 PR#175
+
+COMPILER: warn if non-numeric data is being used for axes updates
+
+2016.11.02 PR#169
+
+OPTIMIZATION: some un-necessary code was deleted in a cleanup effort
+by @faizan-khan-iit, thanks!
+
+2016.08.21 PR#158
+
+DSL/RENDER: Added theme_animint(update_axes=c("x", "y")) option
+for single selection showSelected variables.
+
+2016.08.15 PR#166
+
+BUGFIX: no more NA saved to tsv files (even when there is no common
+data tsv file).
+
+OPTIMIZATION: getCommonChunk is faster, now we only split by group
+(and vectorize over chunks rather than splitting on chunks and doing a
+for loop). Also checkCommon returns that a variable is NOT common as
+soon as we have at least two chunks for which that variable is
+different, for a given group (before, we were checking all chunks).
+
+TEST: getStyleValue now works even if there are some nodes which are
+missing the style attribute.
+
+COMPILER: when aes(group) is specified and we have NA values with a
+group, we add a new subgroup ID for each run of non-NA
+values. Normally in ggplot2 this is important since for example a line
+group with two runs of NA values will be rendered as three lines. This
+fixes the bug that was combining lines, see
+test-renderer4-NA-separate-lines.R
+
+2016.08.14 PR#165
+
+DATA: prostateLasso.
+
+BUGFIX: tooltips display correctly even after they have been updated
+via a selector change.
+
+BUGFIX: it is now OK to use .variable .value aes with the time
+selector.
+
+DSL: make_tallrect and new make_widerect use .variable and .value aes
+and key so that they now support smooth transitions.
+
+2016.07.12 PR#157
+
+GGPLOT: added support for stroke aesthetic in geom_point
+Covers #127 (test-renderer4-geom-point-stroke.R)
+
+2016.07.06 PR#156
+
+BUGFIX: tooltip and href now work properly when used together
+fixes #100 and #155 (test-renderer5-tooltip-interactivity.R)
+
+2016.06.26 PR#135
+
+GGPLOT: compiler works with ggplot2 >= 2.0 thanks to Kevin and
+(especially) Faizan!
+
+2016.05.11 PR#152
+
+GGPLOT: no warning when showSelected is used with stats which are
+known to work (hline, vline, abline).
+
+2016.05.08 PR#146
+
+GGPLOT: the compiler now stops with an informative error when stats
+are used with showSelected. New warning when position is used with
+showSelected.
+
+RENDER: aes(href) works when data_is_object (e.g. geom_polygon)
+
+2016.05.07 PR#151
+
+BUGFIX: common chunk data were not computed correctly when some chunks
+did not have all groups.
+
+2016.03.23 PR#143
+
+DSL: informative error when time option but no interactive aes
+specified.
+
+RENDER: "Show selection menus" instead of "Toggle selected variables"
+to be more consistent with the other buttons.
+
+2016.03.22 PR#138
+
+structure(viz, class="animint") works on the R command line (before,
+it only worked in Rmd files).
+
+BUGFIX: now we can render legends called "label" in Rmd (before, there
+was a conflict with bootstrap.js which is used to render Rmd, and
+defines a css style for a class called "label")
+
+BUGFIX: plots, legends, and legend entries in the same Rmd are now
+guaranteed to have different id.
+
+BUGFIX: animints with common chunk tsv files now work in Rmd.
+
+RENDER: selector.types defaults to multiple selection for variables
+which have legends somewhere in the data viz.
+
+2016.03.15 PR#141
+
+TEST: Added the test for Lilac Chaser Visual Illusion.
+test-renderer3-lilac_chaser.R
+
+2016.03.14 PR#140
+
+BUGFIX for geom_point(aes(color), fill=NA), new ensure_rgba for test
+infrastructure that can convert arbitrary colors to rgba format
+(respecting alpha opacity).
+
+2016.03.08 PR#137
+
+BUGFIX for geom_path(aes(group, key)) with animated transitions, see
+test-renderer3-path-key.R.
+
+2016.03.01 PR#133
+
+BUGFIX for an animint inside of shiny. Thanks to @lrmelt who brought
+up the issue #132. Now we have a test for animating, changing shiny
+widgets, and re-rendering an animint inside of a shiny app.
+
+2016.02.29 PR#134
+
+BUGFIX in merge_recurse when there are several geoms with different
+aes values that could be used to render legend entries, just take the
+last one (test-renderer3-roc.R).
+
+2016.01.28
+
+Depend ggplot2 < 2.0.
+
+BUGFIX: knit_print.animint seems to be working again with the most
+recent version of knitr/rmarkdown. Use rmarkdown::render("doc.Rmd")
+without the output_dir argument!
+https://github.com/rstudio/rmarkdown/issues/587#issuecomment-168437646
+
+2015.12.09 PR#125
+
+BUGFIX: geom_widerect should now render properly in all
+contexts. There was some problem when plot width << height which is
+now fixed.
+
+2015.12.03 PR#124
+
+animint2gist stops with the new max of 300 files per gist.
+
+2015.12.01 PR#119
+
+animint2gist now stops with an error when there are over 40 files
+(fixes #122) and when there is at least one file that is over 1MB,
+which would be truncated (fixes #121).
+
+Animations with geoms that have more than one chunk var start playing
+immediately.
+
+Compiler stops with an informative error "aes names must be unique"
+when the same interactive aes appears multiple times,
+e.g. aes(showSelected=var1, showSelected=var2)
+
+2015.11.30
+
+BUGFIX: axis hiding on maps works again, via 6 element_blank()s:
+theme(axis.line=element_blank(), 
+      axis.text=element_blank(), 
+      axis.ticks=element_blank(), 
+      axis.title=element_blank(),
+      panel.background = element_blank(),
+      panel.border = element_blank())
+
+2015.11.01
+
+BUGFIX: facet_grid(var ~ ., space="free") now uses the correct amount
+of space between vertical panels, and we test for it in
+test-renderer2-ChromHMMiterations.R.
+
+BUGFIX: axis names are now correctly spaced in the middle between the
+extreme panel edges.
+
+2015.10.26
+
+DSL: geom_1(aes(color=something))+geom_2(aes(color=something.else)) is
+now an error. aes(color="constant") and aes(color=factor(x)) are also
+errors. The idea is to force the designer to use informative and
+consistent selector variable names for interactive legends.
+
+DATA: PredictedPeaks and test-renderer2-PredictedPeaks.R
+
+BUGFIX: do not call update_selector twice from selectize widgets,
+since we are now using setValue(values, true).
+
+DSL: selectize option list for determining which selector widgets to
+render. By default do not render a widget if there are more than 1000
+values.
+
+2015.10.18
+
+GGPLOT: aes(hjust) support for values 0, 0.5, 1 (error for other
+values). geom_text(vjust) or aes(vjust) raises warning if values other
+than 0.5 are specified.
+
+RENDERER: do not show selector widgets for selectors that were created
+with .variable .value aesthetics.
+
+RENDERER: play() only after loading all animation chunks.
+
+BUGFIX: common/varied chunk code properly handles the example in
+test-renderer2-VariantModels.R.
+
+2015.09.28
+
+BUGFIX: common/varied chunk code properly handles the example in
+test-PeakConsistency.R -- no nest columns in common data, and each
+group of common data must have either 1 or N data, where N is the
+number of rows in each varied chunk.
+
+2015.09.25
+
+BUGFIX: multiple animints can be rendered in the same Rmd, and each
+animint does not affect any of the others.
+
+2015.09.23
+
+BUGFIX: tooltips render for geoms with clickSelects.variable/value.
+
+2015.09.22
+
+BUGFIX: geom_hline is now rendered properly. Test includes with and
+without the data= argument.
+
+2015.09.18
+
+BUGFIX: geom_line was not rendering properly when the x values were
+not saved in increasing order in the tsv files. Fixed by sorting
+before saving.
+
+2015.09.17
+
+OPTIMIZATION: the compiler will not save any geom1_chunk123.tsv files
+less than 4KB, unless specifically asked to do so using chunk_vars.
+
+OPTIMIZATION: @caijun's GSOC2015 project allows even more disk space
+savings, by saving data which is the same in every tsv file in
+geom1_common.tsv. 
+http://kferris10.github.io/AnimintBlog/Optimization-of-Disk-Usage-for-animint/
+
+2015.09.16
+
+BUGFIX: data renders properly when there are many facet rows or
+columns (before, there was some problem with scales that was causing
+negative data values).
+
+RENDER: theme(panel.margin=grid::unit(0, "lines")) is interpreted to
+mean no space between facets. Useful to save space with theme_bw().
+
+2015.09.08
+
+RENDER: For each selector variable, render a widget for selecting
+values using selectize.js
+
+2015.08.31
+
+BUGFIX: For geom_point(aes(fill=annotation,
+color=highly.divergent.regions)) the color legend now correctly shows
+a different stroke but the same fill for each <circle>.
+
+BUGFIX: interactive legends now work properly when selection/legend
+variable names contain dots (see test-malaria.R).
+
+BUGFIX: test-shiny.R works again thanks to remDr$switchToFrame.
+
+2015.07.17
+
+RENDER: Legends are now interactive and can be used to clickSelect.  This means that aes(colour = variable) implies aes(showSelectedcolour = variable) for discrete variables.
+
+2015.07.16
+
+BUGFIX: geom_abline() stays on panel and theme(panel.grid = element_blank()) works.
+
+2015.07.13
+
+Fix bug where plots without minor y grid lines were not rendering.  Update grid lines so that they inherit characteristics from default lines.
+
+2015.07.03
+
+Fix bug with geom_abline().  Automatically rebuild gh-pages tutorial when pushing to master.
+
+2015.06.25
+
+BUGFIX: Plots with only one grid line now render.
+
+2015.06.23
+
+BUGFIX: Panel backgrounds and borders can now handle rectangles of element_blank().
+
+2015.06.22
+
+EXAMPLE: Incorporate example with pirates data.
+
+2015.06.16
+
+RENDER: Implement panel backgrounds, panel borders, and grid lines in plots.
+
+2015.05.29
+
+BUGFIX: warnings for opening pid.txt, closing unused connection and generating make_text.Rd.
+
+2015.05.28
+
+BUGFIX: ordering of legend entries now correctly reverses the order of
+numeric legend entries, so that smaller numbers appear lower in the
+legend.
+
+2015.05.21
+
+BUGFIX: linetypes, legend ordering, color=NA means "transparent" etc
+https://github.com/tdhock/animint/pull/72
+
+BUGFIX: Testing should now work on Windows with Firefox.
+
+For complete details, see https://github.com/tdhock/animint/pull/70
+
+2015.05.20 https://github.com/tdhock/animint/pull/48
+
+RENDER: if the animation is paused when the user hides the animint
+window, then do not automatically start playing when the user shows
+the window.
+
+BUGFIX: aes(linetype) support for tall/wide rects.
+
+BUGFIX: facet_grid bugfix for when there is only 1 row or column.
+
+BUGFIX: R colors defined in parameters such as
+geom_line(colour="grey50") are now corrected translated to
+rgb(127, 127, 127) in JSON.
+
+2015.05.11
+
+For complete details, see https://github.com/tdhock/animint/pull/62
+
+DSL: The url_prefix argument in animint2dir() was removed. Now the result will always be viewed at http://bl.ocks.org/:owner/raw/:id for better viewing.
+BUGFIX: The animint.js file introduces only 1 thing (animint) into the global JavaScript environment.
+Added continuous integration with wercker and made several improvements to testing infrastructure.
+
+2015.03.31
+
+BUGFIX: Various improvements including namespace handling. Fixes
+https://github.com/tdhock/animint/issues/49
+https://github.com/tdhock/animint/issues/46
+
+2015.03.30
+
+Better testing "framework". See the testing page of the wiki for details
+https://github.com/tdhock/animint/wiki/Testing
+
+2015.03.23
+
+BUGFIX: hjust aesthetic for geom_text. R's valid hjust=0.5|1|0 is equivalent to CSS text-anchor: middle|end|start.
+
+2015.01.27
+
+Translate R/ggplot
+theme(axis.text.x=element_text(angle=70, hjust=1))
+to HTML/SVG
+<text style="text-anchor: end;" transform="rotate(-70)">
+Thanks for the bug report @mswastik
+
+2015.01.19
+
+BUGFIX: no longer need to load knitr in a knitr document to print
+an animint plot.
+
+2014.12.4
+
+BUGFIX: do not stop when viz$timeSeries is a ggplot and viz$time is
+undefined. More informative error when viz$time does not contain the
+required elements named ms and variable.
+
+2014.11.24
+
+Added css.file argument to animint2dir
+
+2014.11.13
+
+knit_print.animint will now overwrite existing directories. This more closely mimics the default behavoir of knitr (everytime you re-knit, new figures/output files replace old ones).
+
+2014.11.11
+
+BUGFIX: Account for facet strip labels when placing multiple rows of panels.
+
+2014.10.29
+
+DSL: aes(tooltip=text) for specifying the text to show when you hover
+the mouse over something, e.g. issue #1.
+
+2014.10.26
+
+BUGFIX: When using facet_grid() + coord_equal() with multiple rows,
+the rows after the first row were not placed properly.
+
+2014.10.21
+
+User can play/pause the animation, and adjust animation time and
+transition durations.
+
+2014.10.15
+
+"shiny bindings" are now possible using the renderAnimint() and
+animintOutput() convenience functions. See here for simple shiny app:
+https://github.com/tdhock/animint/tree/master/inst/examples/shiny
+
+You can also incorporate animint plots into interactive documents:
+https://github.com/tdhock/animint/tree/master/inst/examples/rmarkdown
+
+You can view a live version of these examples here:
+https://cpsievert.shinyapps.io/animintShiny
+https://cpsievert.shinyapps.io/animintRmarkdown
+
+2014.10.13
+
+BUGFIX: Main title will no longer overlap with facet titles -- see
+https://github.com/tdhock/animint/issues/26
+Also, space management between panels was reduced/improved.
+
+2014.10.10
+
+GGPLOT: geom_widerect is now defined in geoms.R and it is rendered by
+animint.js.
+
+BUGFIX: when nest_order contains PANEL and group, group should come
+last.
+
+2014.10.9
+
+BUGFIX: use eActions(enter_elements) to prevent them from flying in
+from the upper left.
+
+2014.9.26
+
+DSL: multiple selection! Now you can declare each interaction variable
+as either single or multiple selection using an option list:
+selector.types=list(year="single", country="multiple"). If this option
+list is not specified, single selection is used by default for all
+selectors. The interface to multiple selection should be simple: click
+a country to toggle the selection state from off to on.
+
+2014.8.25
+
+GGPLOT: facet_* and coord_fixed are now fully functional.
+BUGFIX: ticks/labels for scale_x_time are rendered properly.
+
+2014.6.10
+
+Restore support for numeric legends.
+
+2014.6.2
+
+DSL: Custom title for the generated HTML page using option
+title="TITLE". This title is also used for the animint2gist
+description.
+
+DSL: aes(href=sprintf("http://genome.ucsc.edu/%s", id)) to have
+clicking open a new web browser tab at that URL.
+
+OUTPUT: gg2animint is now deprecated, use animint2dir instead.
+
+animint2gist now checks for and ignores directories and files of size
+0, which were causing
+Error: client error: (422) Unprocessable Entity (WebDAV; RFC 4918)
+
+2014.5.22
+
+All tests are now working.
+
+The animist2gist function posts relevant files as a gist and allows
+one to automatically view/share plots via http://bl.ocks.org
+
+Moved a number of packages from DEPENDS to IMPORTS
+(except for ggplot2 and proto). Also added gistr to SUGGESTS
+as it is needed for animist2gist.
+
+2014.5.17
+
+Fixed the "too many legend entires" bug. For more info,
+see the commit that introduced the bug  (and the note on
+why it doesn't work)
+
+https://github.com/tdhock/animint/commit/069c167117c169dea9277608e8a0cbed3c75fcff
+
+2014.5.16
+
+The new knit_print.animint function tells knitr how to print
+objects of class "animint". This allows one to embed multiple
+animint plots in a single HTML via R Markdown and knitr. This
+is currently only possible with the dev version of knitr,
+but this won't be a problem when v1.6 is released to CRAN
+
+2014.5.15
+
+Use a local file server if the servr package is installed.
+
+2014.5.9
+
+Download progress table at the bottom of the plot.
+- click a button to show or hide the entire table.
+
+BUGFIX: geom_rect(size=0) is now correctly translated to
+<rect style="stroke-width: 0;">.
+
+2014.5.5
+
+duration=list(complexity.i=2000) means a smooth transition over 2
+seconds ONLY when the complexity.i selector is updated. e.g. for
+geom_ribbon(aes(showSelected=sample1, showSelected2=sample2,
+showSelected3=complexity.i, showSelected4=set.name), this means that
+there should be no smooth transition when we click to update sample1,
+sample2, or set.name. See
+https://github.com/tdhock/animint-examples/blob/master/examples/chip.seq.R
+
+Specify aes(key=variable) for constancy in transitions:
+http://bost.ocks.org/mike/constancy/ I found a real data set where
+this is necessary:
+https://github.com/tdhock/animint-examples/blob/master/examples/chip.seq.R
+
+2014.4.30
+
+The designer can specify chunk variables via
+geom_line(aes(showSelected=var1, showSelected2=var2,
+showSelected3=var3), chunk_vars=c("var1", "var2")).
+
+2014.4.28
+
+scale_x_continuous(LABEL) specifies the x axis label. Previously, we
+could only use xlab(LABEL).
+
+2014.4.25
+
+theme_animint(width=600, height=600) instead of option lists which
+make us repeat the plot names... I made
+tdhock/ggplot2@98cefe4d653ce8f214177b66dc030c2f3c725ffb which lets you
+say theme(validate=FALSE) to avoid calling validate_element. This
+works with tdhock/animint@c4ff92d8c4edf523d20c6022fb3b515b19974b8b and
+I submitted an issue https://github.com/hadley/ggplot2/issues/938 and
+pull request.
+
+2014.4.22
+
+BUGFIX: the geom drawing order is respected now, even if there are
+some geoms which are absent for the current selection. This is
+implemented by putting the geoms on each layer in a g element with
+class e.g. geom7_vline_scatter. The g element is initialized on plot
+startup, and never is deleted, even if there are 0 geoms in the
+current selection.
+
+BUGFIX: in the JavaScript, when there are zero groups of line/ribbon
+data to display for the current selection, just draw nothing (before
+there was an error since the code was written as though there was 1
+instead of 0 groups).
+
+2014.4.16
+
+BUGFIX: toJSON gives an infinite recursion error for converting R
+functions to JSON, and R functions are sometimes used as ggplot
+params/stat_params. But we do not want to pass these to JSON anyway,
+so we just ignore them.
+
+2014.4.7
+
+BUGFIX: make_text now works even if it appears before/after certain
+other data. See examples/make_text_bug.R
+
+The default/first selection can be specified by an option
+first=list(year=1960, country=c("Japan", "United States"). Stop with
+an error if multiple values are specified for a single selection
+variable.
+
+BUGFIX: Animation now works even for non-numeric variables,
+e.g. examples/canada-cities.R.
+
+For animations, start downloading the next chunk for that geom, until
+all data is loaded, even if it is not needed on screen right now.
+
+For large data sets such as the scaffold data, breaking the CSV
+database from 21 to 94032 CSV files resulted in a 10x increase
+in disk space usage (but faster loading of the first data subset),
+for 653018 rows of data. Forcing max 1 chunk variable means only
+18045 CSV files which is more space/time efficient. Also, plot.json
+only stores the chunk ids, not the full filenames (less repetition).
+thocking@silene:~/projects/scaffold-viz$ ls boxes-nochunks|grep csv|wc -l
+21
+thocking@silene:~/projects/scaffold-viz$ ls boxes-fewer-chunks|grep tsv|wc -l
+18045
+thocking@silene:~/projects/scaffold-viz$ ls boxes-chunks|grep tsv|wc -l
+94032
+thocking@silene:~/projects/scaffold-viz$ du -hs boxes-*chunks
+45M	boxes-nochunks
+99M	boxes-fewer-chunks
+400M	boxes-chunks
+I uploaded these visualizations and timed page loading in chromium:
+http://cbio.ensmp.fr/~thocking/scaffold-viz5/ 44.1MB transferred 27.95 s
+transfers ALL the data. slow part is 3 csv files, each around 13 MB.
+http://cbio.ensmp.fr/~thocking/boxes-fewer-chunks/
+transfers only the first subset. 5.6MB transferred 7.73 s.
+plot.json is only 304KB, slow part is 1.6MB geom7_point_box_chunk1057.tsv.
+http://cbio.ensmp.fr/~thocking/boxes-chunks/ 12.1MB transferred 9.61 s
+transfers only the first subset. slow part is 8.7MB plot.json.
+
+2014.4.4
+
+Download progress table at the bottom of the plot.
+- row for every geom.
+- columns: geom, selected chunk, status, downloaded, total.
+
+BUGFIX: stop with an error if width or height list contains plot names
+that do not exist!
+
+BUGFIX: when there are commas in text labels, animint.js now parses
+the data correctly, since we use tsv instead of csv. See
+examples/align_rect_text.R.
+
+Speedy web page loading: on compile, divide data into chunks ---
+separate csv files. In general a chunk of data will be shown onscreen
+at the same time, but we should not make chunks with only 1 row
+e.g. for the WorldBank viz, geom_points should have 1 chunk per year,
+geom_text country labels should have 1 chunk per country, and
+geom_text year labels should have just 1 chunk which covers all
+years. On page load, start downloading the first chunk for each geom.
+
+2014.3.19
+
+For geoms with fill=a numeric variable, changing the opacity changes
+how we interpret the colors, so for these geoms, show selection by
+changing the stroke instead.
+
+2014.3.13
+
+scale_size_animint
+
+2014.2.24
+
+vervet data.
+
+2014.01.27
+
+allow specifying guide="none" in ggplot2 scales that would generate a
+legend.
+
+2013.11.22
+
+Test for warnings.
+
+Warn when 0-sized geoms are produced, since they will be invisible.
+
+Do not sort NULL during check for animation values, to avoid warning.
+
+2013.11.19
+
+draw colored, sized "a" in legend for geom_text.
+
+geom_text(aes(size)) is resized using e.g. <text font-size="10">
+
+2013.11.15
+
+Bugfix: filter NaN before passing data to lineThing to avoid hiding an
+entire line if only one element is NA.
+
+2013.10.23
+
+Include 1 animint in a knitr Rmd document when processed in the same
+directory.
+
+Generate documentation example web site.
+
+Bugfix for geom_point(colour=constant).
+
+2013.10.15
+
+Hide only y axis and not x axis if axis.text.y=element_blank(), etc.
+
+2013.10.4
+
+Bugfixes for geom_ribbon(aes(fill=variable)) and
+geom_text(aes(color=variable)).
+
+2013.9.26
+
+Update R/JS comments from emails to Susan.
+
+gg2animint examples are animated and interactive.
+
+2013.8.29
+Implementation of geom_hex with relevant examples and documentation.
+
+2013.8.15
+Updated package requirements (MASS, reshape2, maps)
+Updated documentation to include warnings about using google chrome with animint
+
+
+2013.7.29
+Fix for significant digits issue with clickSelects - fixed by exporting
+as character into JSON file, then importing and converting to numerals.
+
+Axes can now be removed for maps
+
+2013.7.26
+
+bugfix for animations: before, we assumed that the animation variable
+takes values in 1..n, but now this is treated properly by looking at
+the actual values.
+
+make_text for quick labels.
+
+make_*(data, ...)
+
+WARNING when stat_bin is used to put several clickSelects or
+showSelected values in the same bin!
+
